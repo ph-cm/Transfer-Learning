@@ -8,10 +8,13 @@ import numpy as np
 import os
 import glob
 import pytorchcv
+import torch.optim as optim
 
 def train(model, dataloader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
+    criterion = torch.nn.NLLLoss()
+
     for inputs, labels in dataloader:
         inputs, labels = inputs.to(device), labels.to(device)
         optimizer.zero_grad()
@@ -89,3 +92,37 @@ vgg.to(device)
 sample_image = sample_image.to(device)
 
 vgg(sample_image).argmax()
+
+#Extracting VGG features
+res = vgg.features(sample_image).cpu()
+plt.figure(figsize=(15,3))
+plt.imshow(res.detach().view(512,-1).T)
+print(res.size())
+plt.show()
+
+bs = 8
+dl = torch.utils.data.DataLoader(dataset,batch_size=bs,shuffle=True)
+num = bs*100
+feature_tensor = torch.zeros(num,512*7*7).to(device)
+label_tensor = torch.zeros(num).to(device)
+i = 0
+for x,l in dl:
+    with torch.no_grad():
+        f = vgg.features(x.to(device))
+        feature_tensor[i:i+bs] = f.view(bs,-1)
+        label_tensor[i:i+bs] = l
+        i+=bs
+        print('.',end='')
+        if i>=num:
+            break
+
+vgg_dataset = torch.utils.data.TensorDataset(feature_tensor,label_tensor.to(torch.long))
+train_ds, test_ds = torch.utils.data.random_split(vgg_dataset,[700,100])
+
+train_loader = torch.utils.data.DataLoader(train_ds,batch_size=32)
+test_loader = torch.utils.data.DataLoader(test_ds,batch_size=32)
+
+net = torch.nn.Sequential(torch.nn.Linear(512*7*7,2),torch.nn.LogSoftmax(dim=1)).to(device)
+optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
+
+history = train(net, train_loader, test_loader, optimizer, device)
