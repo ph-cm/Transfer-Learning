@@ -10,6 +10,7 @@ import glob
 import pytorchcv
 import torch.optim as optim
 
+
 def train(model, dataloader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
@@ -54,6 +55,26 @@ def display_dataset(dataset, num_images=5):
 
 check_image_dir(r'C:\Users\phenr\Downloads\kagglecatsanddogs_5340\PetImages\Dog\*.jpg')
 check_image_dir(r'C:\Users\phenr\Downloads\kagglecatsanddogs_5340\PetImages\Cat\*.jpg')
+
+from PIL import Image
+
+image_dir = r'C:\Users\phenr\Downloads\kagglecatsanddogs_5340\PetImages\Dog'
+invalid_files = []
+
+for file in os.listdir(image_dir):
+    file_path = os.path.join(image_dir, file)
+    try:
+        with Image.open(file_path) as img:
+            img.verify()  # Verifica se o arquivo é uma imagem válida
+    except Exception as e:
+        print(f"Invalid image file: {file_path} - {e}")
+        invalid_files.append(file_path)
+
+print(f"Found {len(invalid_files)} invalid files.")
+
+for file_path in invalid_files:
+    os.remove(file_path)
+print("Invalid files removed.")
 
 
 std_normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
@@ -126,3 +147,42 @@ net = torch.nn.Sequential(torch.nn.Linear(512*7*7,2),torch.nn.LogSoftmax(dim=1))
 optimizer = optim.SGD(net.parameters(), lr=0.01, momentum=0.9)
 
 history = train(net, train_loader, test_loader, optimizer, device)
+
+print(vgg)
+
+vgg.classifier = torch.nn.Linear(25088,2).to(device)
+
+for x in vgg.features.parameters():
+    x.requires_grad = False
+
+summary(vgg,(1, 3,244,244))
+
+trainset, testset = torch.utils.data.random_split(dataset,[20000,len(dataset)-20000])
+train_loader = torch.utils.data.DataLoader(trainset,batch_size=16)
+test_loader = torch.utils.data.DataLoader(testset,batch_size=16)
+
+def train_long(model, train_loader, test_loader, loss_fn, epochs=10, print_freq=90):
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, weight_decay=1e-4)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    model.train()
+
+    for epoch in range(epochs):
+        running_loss = 0.0
+        for i, (inputs, labels) in enumerate(train_loader):
+            inputs, labels = inputs.to(device), labels.to(device)
+            optimizer.zero_grad()
+            outputs = model(inputs)
+            loss = loss_fn(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+            if i % print_freq == 0:  # Log a cada 'print_freq' batches
+                print(f"[Epoch {epoch+1}, Batch {i}] Loss: {running_loss / (i+1):.4f}")
+        
+        print(f"Epoch {epoch+1} completed. Loss: {running_loss / len(train_loader):.4f}")
+    
+    print("Training completed.")
+
+train_long(vgg, train_loader, test_loader, loss_fn=torch.nn.CrossEntropyLoss(), epochs=1, print_freq=90)
