@@ -78,3 +78,14 @@ class_map = { int(k) : v for k,v in class_map.items() }
 class_map[res[0].argmax().item()]
 
 summary(vgg,input_size=(1,3,224,224))
+
+#GPU computations
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+print('Doing computations on device = {}'.format(device))
+
+vgg.to(device)
+sample_image = sample_image.to(device)
+
+vgg(sample_image).argmax()
