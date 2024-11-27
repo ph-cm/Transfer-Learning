@@ -64,3 +64,17 @@ dataset = torchvision.datasets.ImageFolder(r'C:\Users\phenr\Downloads\kagglecats
 trainset, testset = torch.utils.data.random_split(dataset,[20000,len(dataset)-20000])
 
 display_dataset(dataset)
+
+#Pre-trained models
+vgg = torchvision.models.vgg16(pretrained=True)
+sample_image = dataset[0][0].unsqueeze(0)
+res = vgg(sample_image)
+print(res[0].argmax())
+
+import json, requests
+class_map = json.loads(requests.get("https://s3.amazonaws.com/deep-learning-models/image-models/imagenet_class_index.json").text)
+class_map = { int(k) : v for k,v in class_map.items() }
+
+class_map[res[0].argmax().item()]
+
+summary(vgg,input_size=(1,3,224,224))
